@@ -166,7 +166,7 @@ indian-portfolio-tracker/
 | Phase | Status | Contents |
 |---|---|---|
 | **Phase 1** | ✅ Complete | Backend foundation, all data models, auth, health check, run scripts |
-| **Phase 2** | Planned | CAS PDF parser, full asset CRUD, live NAV fetch |
+| **Phase 2** | ✅ Complete | CAS PDF parser (CAMS + KFintech), full CRUD for all 15 asset types, live NAV/price fetch, net worth + allocation endpoints |
 | **Phase 3** | Planned | XIRR, allocation charts, benchmark comparison, tax insights |
 | **Phase 4** | Planned | Family profiles UI, goals, maturity alerts, CSV/Excel export |
 | **Phase 5** | Planned | Dark mode, mobile layout, HTML snapshot, QR code in settings |
