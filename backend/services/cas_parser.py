@@ -395,13 +395,14 @@ def deduplicate_transactions(
 ) -> list[Transaction]:
     """Return only transactions not already in the database.
 
-    Duplicate key: (folio_number, transaction_date, transaction_type, amount).
+    Duplicate key: (folio_number, transaction_date, transaction_type, units, amount).
     """
     existing_keys = {
         (
             r['folio_number'],
             str(r['transaction_date'])[:10],
             r['transaction_type'],
+            r.get('units'),
             r.get('amount'),
         )
         for r in existing
@@ -413,6 +414,7 @@ def deduplicate_transactions(
             tx.folio_number,
             str(tx.transaction_date),
             tx.transaction_type,
+            tx.units,
             tx.amount,
         )
         if key not in existing_keys:

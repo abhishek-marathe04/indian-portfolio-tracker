@@ -1,6 +1,6 @@
 # 🇮🇳 Indian Personal Portfolio Tracker — Product Requirements Document
 
-**Version:** 1.1  
+**Version:** 1.2  
 **Date:** March 2026  
 **Target Audience:** Individual Indian investors & families  
 **Deployment:** Local machine (offline-first, spin up on demand)
@@ -323,19 +323,43 @@ SavingsAccount
 
 ### 7.2 CAS Upload & Parsing
 
-**Supported formats:**
+**Supported CAS types:**
 - CAMS CAS PDF (password-protected with PAN-based password)
 - KFintech CAS PDF (password-protected)
-- Combined CAS (when multiple RTAs)
+- Combined CAS (when multiple RTAs in one PDF)
+- **Consolidated / date-range CAS** — single PDF covering months or years of history (requested directly from CAMS/KFintech portal)
+- **Individual monthly PDFs** — one per month, uploaded in bulk
 
-**Upload flow:**
-1. User uploads CAS PDF + enters PDF password (PAN + DOB format)
-2. Backend decrypts and parses the PDF using `pdfplumber`
+**Bulk historical upload (drag and drop):**
+- Upload page accepts multiple PDFs simultaneously via drag-and-drop or file picker
+- User enters one password (assumed same PAN-based password across all files)
+- Files are queued and processed sequentially in the background
+- A progress panel shows per-file status in real time:
+  ```
+  ✅ CAS_Jan2022.pdf   — 12 transactions, 4 folios
+  ✅ CAS_Feb2022.pdf   — 3 transactions, 4 folios
+  ⏳ CAS_Mar2022.pdf   — processing...
+  ⬜ CAS_Apr2022.pdf   — queued
+  ```
+- On completion: summary card shows total transactions imported, date range covered, any files that failed
+- Failed files are flagged with reason (wrong password, unrecognised format, duplicate — already fully imported)
+
+**Duplicate detection (critical for historical imports):**
+- A transaction is a duplicate if: same folio number + same date + same transaction type + same units + same amount
+- Duplicates are silently skipped — not counted as errors
+- If an entire CAS PDF is already fully imported (all transactions are duplicates), file is marked "Already imported — skipped"
+- Partial overlaps are handled gracefully — only net-new transactions from that PDF are added
+
+**Single file upload flow (existing behaviour, unchanged):**
+1. User uploads one CAS PDF + enters PDF password
+2. Backend decrypts and parses using `pdfplumber`
 3. Parser extracts: investor name, PAN, folio numbers, scheme names, AMFI codes, transactions, closing balances
-4. Duplicate detection: if a transaction with the same folio + date + amount exists, skip it
-5. New transactions are added; existing holdings are updated
-6. Original PDF is archived in `/uploads/` with timestamp
-7. User sees a summary: "X new transactions found across Y folios"
+4. Duplicates skipped; new transactions added; holdings updated
+5. Original PDF archived in `uploads/` with timestamp
+6. User sees summary: "X new transactions found across Y folios"
+
+**Historical import — first-time setup guidance (shown in UI):**
+> 💡 *Building your history for the first time? Request a Consolidated CAS from CAMS (mycams.com) and KFintech (kfintech.com) covering your full investment period — you'll get one PDF per RTA covering all your transactions. Upload both together here.*
 
 **Parser must handle:**
 - Multiple folios per AMC
@@ -343,7 +367,9 @@ SavingsAccount
 - Switch in / switch out
 - SIP transactions
 - Stamp duty lines
-- Different CAS layouts across months
+- Different CAS layouts across months and years
+- Consolidated CAS spanning multiple years (larger files, same format)
+- Mixed RTA data in a single combined CAS
 
 ### 7.3 Manual Asset Entry
 
@@ -644,8 +670,10 @@ exports/                     ← Generated HTML snapshots + CSV/Excel exports
 ### Phase 1 — Core MVP
 - [ ] Auth (login + change password)
 - [ ] SQLite DB setup with all models
-- [ ] CAS PDF upload + parser (CAMS + KFintech)
-- [ ] Mutual Fund holdings view
+- [ ] CAS PDF upload + parser (CAMS + KFintech) — single file
+- [ ] **Bulk CAS upload** — drag and drop multiple PDFs, per-file progress panel, duplicate detection
+- [ ] **Consolidated CAS support** — date-range PDFs spanning months/years
+- [ ] Mutual Fund holdings view with full transaction history
 - [ ] Manual entry: FD, PPF, Savings Account
 - [ ] Net worth dashboard (basic)
 - [ ] Live NAV fetch (AMFI)
@@ -730,4 +758,4 @@ netifaces            # Detect local WiFi IP address at startup
 
 ---
 
-*Document prepared based on user requirements — March 2026. Version 1.1 adds same-WiFi mobile access and static HTML snapshot export. This is the blueprint; features may evolve during implementation.*
+*Document prepared based on user requirements — March 2026. Version 1.2 adds bulk historical CAS upload, consolidated date-range CAS support, and per-file progress tracking. This is the blueprint; features may evolve during implementation.*
