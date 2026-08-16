@@ -5,6 +5,8 @@ Phase 3: XIRR, benchmark comparison, tax insights.
 """
 from __future__ import annotations
 
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -12,7 +14,7 @@ from database import get_db
 from routers.auth import get_current_user
 from models.user import User
 from models.profile import Profile
-from models.mutual_fund import MutualFundHolding
+from models.mutual_fund import MutualFundHolding, MutualFundTransaction
 from models.stock import StockHolding
 from models.deposit import Deposit
 from models.provident_fund import ProvidentFund
@@ -24,6 +26,8 @@ from models.international_holding import InternationalHolding
 from models.crypto import CryptoHolding
 from models.post_office import PostOfficeScheme
 from models.savings_account import SavingsAccount
+from models.portfolio_snapshot import PortfolioSnapshot
+from services.xirr import xirr as compute_xirr
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
@@ -230,11 +234,108 @@ async def refresh_prices(
     return {"message": f"Updated NAVs for {updated} holding(s)."}
 
 
+def _mf_xirr_for_profiles(profile_ids: list[int], db: Session) -> float | None:
+    """XIRR from actual mutual fund cash flows (purchases/SIPs as outflows,
+    redemptions as inflows, current holding value as a final inflow today).
+
+    Mutual funds are the only asset class CAS gives us dated transaction
+    history for — other asset classes only have a current-value snapshot,
+    so they can't be included in a real XIRR calculation.
+    """
+    txns = (
+        db.query(MutualFundTransaction)
+        .filter(MutualFundTransaction.profile_id.in_(profile_ids))
+        .all()
+    )
+    cash_flows: list[float] = []
+    flow_dates: list[date] = []
+    for t in txns:
+        if t.amount is None:
+            continue
+        sign = -1 if t.transaction_type in ("purchase", "sip", "switch_in") else 1
+        cash_flows.append(sign * t.amount)
+        d = t.transaction_date
+        flow_dates.append(d.date() if hasattr(d, "date") else d)
+
+    current_mf_value = sum(
+        _safe(h.current_value)
+        for h in db.query(MutualFundHolding).filter(MutualFundHolding.profile_id.in_(profile_ids))
+    )
+    if current_mf_value:
+        cash_flows.append(current_mf_value)
+        flow_dates.append(date.today())
+
+    if len(cash_flows) < 2:
+        return None
+
+    paired = sorted(zip(flow_dates, cash_flows))
+    sorted_dates = [d for d, _ in paired]
+    sorted_flows = [c for _, c in paired]
+    result = compute_xirr(sorted_flows, sorted_dates)
+    return round(result * 100, 2) if result is not None else None
+
+
+@router.get("/performance")
+def performance(
+    profile_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Portfolio value over time + mutual fund XIRR.
+
+    The value-over-time series is built from each uploaded CAS's own
+    trailing-12-month valuation trend table (whole portfolio: demat + MF +
+    NPS combined) — uploading CAS files spread across years builds up a
+    continuous multi-year history as the trailing windows overlap.
+    """
+    if profile_id is not None:
+        profile = db.query(Profile).filter(Profile.id == profile_id).first()
+        if not profile:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        profile_ids = [profile_id]
+    else:
+        profile_ids = [p.id for p in db.query(Profile).all()]
+
+    rows = (
+        db.query(PortfolioSnapshot)
+        .filter(PortfolioSnapshot.profile_id.in_(profile_ids))
+        .all()
+    )
+    by_month: dict[date, float] = {}
+    for r in rows:
+        by_month[r.snapshot_month] = by_month.get(r.snapshot_month, 0.0) + r.total_value
+
+    value_over_time = [
+        {"month": m.isoformat(), "total_value": round(v, 2)}
+        for m, v in sorted(by_month.items())
+    ]
+
+    return {
+        "value_over_time": value_over_time,
+        "mf_xirr_pct": _mf_xirr_for_profiles(profile_ids, db) if profile_ids else None,
+        "mf_xirr_note": (
+            "XIRR is computed only from mutual fund transactions imported via CAS — "
+            "other asset classes don't have transaction-level history yet."
+        ),
+    }
+
+
 @router.get("/xirr")
 def xirr_endpoint(
     profile_id: int | None = None,
-    folio_number: str | None = None,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """XIRR calculation — Phase 3 implementation."""
-    raise HTTPException(status_code=501, detail="XIRR will be implemented in Phase 3.")
+    """Mutual fund XIRR for a single profile or consolidated across all profiles."""
+    if profile_id is not None:
+        profile = db.query(Profile).filter(Profile.id == profile_id).first()
+        if not profile:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        profile_ids = [profile_id]
+    else:
+        profile_ids = [p.id for p in db.query(Profile).all()]
+
+    return {
+        "mf_xirr_pct": _mf_xirr_for_profiles(profile_ids, db) if profile_ids else None,
+        "scope": "mutual_funds_only",
+    }

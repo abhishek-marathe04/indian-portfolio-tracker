@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Date, Integer, String, Float, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from database import Base
 
@@ -11,12 +11,16 @@ class MutualFundHolding(Base):
     folio_number = Column(String(64), nullable=False, index=True)
     scheme_name = Column(String(256), nullable=False)
     scheme_code = Column(String(32), nullable=True)   # AMFI code
+    isin = Column(String(16), nullable=True)
     amc_name = Column(String(128), nullable=True)
     units_held = Column(Float, nullable=False, default=0.0)
     avg_nav = Column(Float, nullable=True)
     current_nav = Column(Float, nullable=True)
     invested_amount = Column(Float, nullable=True)
     current_value = Column(Float, nullable=True)
+    # Period-end date of the CAS statement that last set units_held/current_value —
+    # guards against an older CAS upload overwriting a newer snapshot.
+    cas_statement_date = Column(Date, nullable=True)
     last_updated = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
 
 

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Date, Integer, String, Float, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from database import Base
 
@@ -23,4 +23,7 @@ class NPS(Base):
     current_value = Column(Float, nullable=True)
     employer_contribution_annual = Column(Float, nullable=True)
     self_contribution_annual = Column(Float, nullable=True)
+    # Period-end date of the CAS statement that last set current_value/pcts —
+    # guards against an older CAS upload overwriting a newer snapshot.
+    cas_statement_date = Column(Date, nullable=True)
     last_updated = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())

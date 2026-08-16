@@ -27,6 +27,8 @@ build/
 venv/
 env/
 .env.local
+.pytest_cache/
+.coverage
 
 # ── Node / Frontend ───────────────────────────────────────────────────────────
 node_modules/

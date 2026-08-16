@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Date, Integer, String, Float, DateTime, ForeignKey, Text
 from sqlalchemy.sql import func
 from database import Base
 
@@ -17,6 +17,9 @@ class StockHolding(Base):
     current_price = Column(Float, nullable=True)
     # Zerodha | Groww | Angel | other
     broker = Column(String(64), nullable=True)
+    # Period-end date of the CAS statement that last set quantity/current_price —
+    # guards against an older CAS upload overwriting a newer snapshot.
+    cas_statement_date = Column(Date, nullable=True)
     last_updated = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
 
 
