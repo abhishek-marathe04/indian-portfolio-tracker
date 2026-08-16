@@ -113,8 +113,11 @@ export interface PortfolioValuePoint {
   total_value: number
 }
 
+export type XirrAssetType = 'all' | 'mutual_funds' | 'stocks'
+
 export interface PerformanceResponse {
   value_over_time: PortfolioValuePoint[]
-  mf_xirr_pct: number | null
-  mf_xirr_note: string
+  xirr_pct: number | null
+  xirr_asset_type: XirrAssetType
+  xirr_note: string
 }

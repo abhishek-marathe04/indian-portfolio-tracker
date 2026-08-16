@@ -2,14 +2,31 @@ import { TrendingUp } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { formatPct } from '../../lib/formatters'
 import { cn } from '../../lib/utils'
+import type { XirrAssetType } from '../../types/api'
 
-export function MfXirrCard({ xirrPct, note }: { xirrPct: number | null; note: string }) {
+const TITLES: Record<XirrAssetType, string> = {
+  all: 'XIRR',
+  mutual_funds: 'Mutual Fund XIRR',
+  stocks: 'Stock XIRR',
+}
+
+export function XirrCard({
+  xirrPct,
+  note,
+  assetType,
+  folioLabel,
+}: {
+  xirrPct: number | null
+  note: string
+  assetType: XirrAssetType
+  folioLabel?: string
+}) {
   const isGain = xirrPct !== null && xirrPct >= 0
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Mutual Fund XIRR</CardTitle>
+        <CardTitle>{folioLabel ?? TITLES[assetType]}</CardTitle>
       </CardHeader>
       <CardContent>
         {xirrPct === null ? (

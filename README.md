@@ -56,9 +56,12 @@ These are used to sign login tokens and encrypt your PAN numbers. Keep them safe
 
 ## Daily Usage
 
+Activate your Python virtual environment first, then run the start script:
+
 ```bash
-./run.sh        # macOS / Linux
-run.bat         # Windows
+source venv/bin/activate   # macOS / Linux — activate your Python env first
+./run.sh                   # macOS / Linux
+run.bat                    # Windows
 ```
 
 The script will:
